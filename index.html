@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Iron & Incline — Offline Workout Tracker</title>
+
+  <!-- Embedded PWA Manifest for single-file portability -->
+  <link rel="manifest" href='data:application/manifest+json,{
+    "name": "Iron & Incline Tracker",
+    "short_name": "WorkoutLog",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": [{
+      "src": "data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2338bdf8%22/><text x=%2250%22 y=%2268%22 font-size=%2255%22 text-anchor=%22middle%22>🏋️</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }]
+  }' />
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-alt: #273549;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-dark: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 90px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 10px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      font-weight: 600;
+    }
+
+    /* Day Selector Pills */
+    .day-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .day-tab {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 8px 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .day-tab strong {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .day-tab span {
+      display: block;
+      font-size: 0.68rem;
+      margin-top: 2px;
+    }
+
+    .day-tab.active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .day-tab.active strong { color: var(--accent); }
+
+    main {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .session-banner {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+
+    .session-banner h2 {
+      margin: 0 0 4px;
+      font-size: 1.05rem;
+    }
+
+    .session-banner p {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Exercise / Cardio Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .target-pill {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      padding: 4px 8px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .last-perf {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .howto-toggle {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0;
+      margin-bottom: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .howto-box {
+      display: none;
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .howto-box.open { display: block; }
+
+    /* Set Rows */
+    .set-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .set-row {
+      display: grid;
+      grid-template-columns: 44px 1fr 1fr 44px;
+      gap: 8px;
+      align-items: center;
+      background: var(--surface-alt);
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+    }
+
+    .set-row.done {
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.08);
+    }
+
+    .set-num {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 34px 8px 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .input-wrap input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .input-unit {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.72rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .check-btn {
+      width: 38px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .set-row.done .check-btn {
+      background: var(--success);
+      border-color: var(--success);
+      color: #052e16;
+      font-weight: 800;
+    }
+
+    /* Cardio Form */
+    .cardio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    /* Action Buttons */
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      color: #082f49;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    .btn-primary:active { background: var(--accent-dark); color: #fff; }
+
+    /* Rest Timer Bar */
+    .timer-bar {
+      position: fixed;
+      bottom: 58px;
+      left: 0;
+      right: 0;
+      background: #0b1120;
+      border-top: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 25;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .timer-display {
+      font-variant-numeric: tabular-nums;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--warning);
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .timer-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Bottom Navigation */
+    nav.bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 58px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      z-index: 30;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .nav-btn.active {
+      color: var(--accent);
+      box-shadow: inset 0 2px 0 var(--accent);
+    }
+
+    /* History List */
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .history-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .history-title {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+
+    .history-lines {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <h1>Iron &amp; Incline</h1>
+    <span class="badge">● Offline Ready</span>
+  </div>
+  <div class="day-tabs" id="dayTabs"></div>
+</header>
+
+<main id="workoutView"></main>
+<main id="historyView" class="hidden"></main>
+
+<!-- Quick Rest Timer -->
+<div class="timer-bar" id="timerBar">
+  <div>
+    <span style="font-size:0.75rem;color:var(--muted);display:block;">Rest Timer</span>
+    <span class="timer-display" id="timerDisplay">00:00</span>
+  </div>
+  <div class="timer-controls">
+    <button class="timer-btn" onclick="startTimer(90)">90s</button>
+    <button class="timer-btn" onclick="startTimer(120)">2:00</button>
+    <button class="timer-btn" onclick="startTimer(180)">3:00</button>
+    <button class="timer-btn" onclick="stopTimer()" style="color:var(--danger);">Stop</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="navWorkout" onclick="switchTab('workout')">Today's Plan</button>
+  <button class="nav-btn" id="navHistory" onclick="switchTab('history')">Workout Log</button>
+</nav>
+
+<script>
+  const PROGRAM = {
+    mon: {
+      shortDay: "MON",
+      label: "Full Body A",
+      type: "strength",
+      title: "Monday — Full Body A (35–40 min)",
+      subtitle: "Warm up with 2 light sets on Barbell Bench Press only, then move straight into working sets. Double progression: add reps weekly until top of range, then add 5 lbs.",
+      exercises: [
+        {
+          id: "bb_bench",
+          name: "Barbell Bench Press",
+          target: "3 × 6–8 reps | 2–3m rest",
+          restSec: 150,
+          howto: "Plant feet flat, retract shoulder blades into the pad, and unrack over your chest. Lower with control to mid-chest, then drive straight up to lockout."
+        },
+        {
+          id: "db_rdl",
+          name: "Dumbbell Romanian Deadlift",
+          target: "3 × 8–10 reps | 2m rest",
+          restSec: 120,
+          howto: "Keep a soft bend in your knees and push your hips straight back with a flat spine until you feel a deep hamstring stretch. Drive hips forward to stand tall."
+        },
+        {
+          id: "lat_pulldown",
+          name: "Lat Pulldown",
+          target: "3 × 8–12 reps | 90s rest",
+          restSec: 90,
+          howto: "Grip slightly wider than shoulder-width, brace your core, and lean back slightly. Pull the bar to your upper chest by driving elbows down and back."
+        }
+      ]
+    },
+    tue: {
+      shortDay: "TUE",
+      label: "Incline Walk",
+      type: "cardio",
+      title: "Tuesday — Treadmill Incline Walk",
+      subtitle: "Low-impact aerobic conditioning and active recovery between Monday and Thursday lifting days.",
+      defaults: { duration: 30, speed: 3.0, incline: 9.0 }
+    },
+    wed: {
+      shortDay: "WED",
+      label: "Incline Walk",
+      type: "cardio",
+      title: "Wednesday — Treadmill Incline Walk",
+      subtitle: "Keep pace conversational (Zone 2). Avoid holding onto the handrails so your posterior chain does the work.",
+      defaults: { duration: 30, speed: 3.0, incline: 9.0 }
+    },
+    thu: {
+      shortDay: "THU",
+      label: "Full Body B",
+      type: "strength",
+      title: "Thursday — Full Body B (35–40 min)",
+      subtitle: "Heavy hinge anchor paired with upper-chest dumbbell pressing and quad-focused leg press. Full weekend recovery follows.",
+      exercises: [
+        {
+          id: "bb_deadlift",
+          name: "Barbell Deadlift",
+          target: "3 × 5–6 reps | 3m rest",
+          restSec: 180,
+          howto: "Stand with mid-foot under the bar, hinge down to grip just outside your shins, flatten your back, brace hard, and push the floor away smoothly."
+        },
+        {
+          id: "incline_db_bench",
+          name: "Incline Dumbbell Bench Press",
+          target: "3 × 8–10 reps | 2m rest",
+          restSec: 120,
+          howto: "Set bench to 30–45°. Press dumbbells up and slightly inward to full extension, then lower under control until handles reach chest level."
+        },
+        {
+          id: "leg_press",
+          name: "Leg Press",
+          target: "3 × 10–12 reps | 90s rest",
+          restSec: 90,
+          howto: "Place feet shoulder-width in the center of the sled. Lower until knees reach ~90° without lifting your lower back off the pad, then press without locking knees."
+        }
+      ]
+    }
+  };
+
+  const STORAGE_KEY = "iron_incline_logs_v1";
+  let currentDay = detectDefaultDay();
+  let timerInterval = null;
+  let timerRemaining = 0;
+
+  function detectDefaultDay() {
+    const d = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu
+    if (d === 2) return "tue";
+    if (d === 3) return "wed";
+    if (d === 4) return "thu";
+    return "mon";
+  }
+
+  function getLogs() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLogs(logs) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  }
+
+  function getLastExercisePerf(exId) {
+    const logs = getLogs();
+    for (const entry of logs) {
+      if (entry.type === "strength" && entry.exercises) {
+        const found = entry.exercises.find(e => e.id === exId && e.sets.length > 0);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function renderDayTabs() {
+    const container = document.getElementById("dayTabs");
+    container.innerHTML = Object.entries(PROGRAM).map(([key, cfg]) => `
+      <button class="day-tab ${key === currentDay ? "active" : ""}" onclick="selectDay('${key}')">
+        <strong>${cfg.shortDay}</strong>
+        <span>${cfg.label}</span>
+      </button>
+    `).join("");
+  }
+
+  function selectDay(dayKey) {
+    currentDay = dayKey;
+    renderDayTabs();
+    renderWorkoutView();
+  }
+
+  function renderWorkoutView() {
+    const view = document.getElementById("workoutView");
+    const session = PROGRAM[currentDay];
+
+    if (session.type === "cardio") {
+      view.innerHTML = `
+        <div class="session-banner">
+          <h2>${session.title}</h2>
+          <p>${session.subtitle}</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Treadmill Incline Walk</h3>
+            <span class="target-pill">30 min @ 8–10%</span>
+          </div>
+          <div class="cardio-grid">
+            <div>
+              <label class="field-label">Duration (min)</label>
+              <div class="input-wrap">
+                <input type="number" id="cardioDur" value="${session.defaults.duration}" step="1" />
+                <span class="input-unit">min</span>
+              </div>
+            </div>
+            <div>
+              <label class="field-label">Speed (mph)</label>
+              <div class="input-wrap">
+                <input type="number" id="cardioSpeed" value="${session.defaults.speed}" step="0.1" />
+                <span class="input-unit">mph</span>
+              </div>
+            </div>
+            <div>
+              <label class="field-label">Incline (%)</label>
+              <div class="input-wrap">
+                <input type="number" id="cardioIncline" value="${session.defaults.incline}" step="0.5" />
+                <span class="input-unit">%</span>
+              </div>
+            </div>
+          </div>
+          <label class="field-label">Session Notes (optional)</label>
+          <input type="text" id="cardioNotes" placeholder="e.g., Felt strong, HR steady ~130 bpm"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:0.9rem;" />
+        </div>
+        <button class="btn-primary" onclick="saveCardioSession()">Save Incline Walk</button>
+      `;
+      return;
+    }
+
+    const cardsHtml = session.exercises.map(ex => {
+      const last = getLastExercisePerf(ex.id);
+      const lastText = last
+        ? `Last: ${last.sets.map(s => `${s.weight}×${s.reps}`).join(", ")}`
+        : "No previous log yet";
+
+      const setsHtml = [0, 1, 2].map(idx => {
+        const prevSet = last && last.sets[idx] ? last.sets[idx] : { weight: "", reps: "" };
+        return `
+          <div class="set-row" id="row_${ex.id}_${idx}">
+            <span class="set-num">Set ${idx + 1}</span>
+            <div class="input-wrap">
+              <input type="number" inputmode="decimal" id="w_${ex.id}_${idx}" placeholder="${prevSet.weight || '0'}" value="${prevSet.weight || ''}" />
+              <span class="input-unit">lbs</span>
+            </div>
+            <div class="input-wrap">
+              <input type="number" inputmode="numeric" id="r_${ex.id}_${idx}" placeholder="${prevSet.reps || '0'}" value="${prevSet.reps || ''}" />
+              <span class="input-unit">reps</span>
+            </div>
+            <button class="check-btn" onclick="toggleSet('${ex.id}', ${idx}, ${ex.restSec})">✓</button>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">${ex.name}</h3>
+            <span class="target-pill">${ex.target}</span>
+          </div>
+          <div class="last-perf">${lastText}</div>
+          <button class="howto-toggle" onclick="toggleHowto('howto_${ex.id}')">ⓘ Form cues</button>
+          <div class="howto-box" id="howto_${ex.id}">${ex.howto}</div>
+          <div class="set-grid">${setsHtml}</div>
+        </div>
+      `;
+    }).join("");
+
+    view.innerHTML = `
+      <div class="session-banner">
+        <h2>${session.title}</h2>
+        <p>${session.subtitle}</p>
+      </div>
+      ${cardsHtml}
+      <button class="btn-primary" onclick="saveStrengthSession()">Finish &amp; Save Workout</button>
+    `;
+  }
+
+  function toggleHowto(id) {
+    document.getElementById(id).classList.toggle("open");
+  }
+
+  function toggleSet(exId, idx, restSec) {
+    const row = document.getElementById(`row_${exId}_${idx}`);
+    const isNowDone = !row.classList.contains("done");
+    row.classList.toggle("done");
+    if (isNowDone) startTimer(restSec);
+  }
+
+  function saveStrengthSession() {
+    const session = PROGRAM[currentDay];
+    const loggedExercises = [];
+
+    session.exercises.forEach(ex => {
+      const sets = [];
+      for (let i = 0; i < 3; i++) {
+        const w = parseFloat(document.getElementById(`w_${ex.id}_${i}`).value);
+        const r = parseInt(document.getElementById(`r_${ex.id}_${i}`).value, 10);
+        if (!isNaN(w) && !isNaN(r) && r > 0) {
+          sets.push({ weight: w, reps: r });
+        }
+      }
+      if (sets.length > 0) {
+        loggedExercises.push({ id: ex.id, name: ex.name, sets });
+      }
+    });
+
+    if (loggedExercises.length === 0) {
+      alert("Enter at least one completed set (weight and reps) before saving.");
+      return;
+    }
+
+    const logs = getLogs();
+    logs.unshift({
+      id: Date.now(),
+      date: new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      type: "strength",
+      title: session.title,
+      exercises: loggedExercises
+    });
+    saveLogs(logs);
+    stopTimer();
+    switchTab("history");
+  }
+
+  function saveCardioSession() {
+    const session = PROGRAM[currentDay];
+    const duration = parseFloat(document.getElementById("cardioDur").value) || 0;
+    const speed = parseFloat(document.getElementById("cardioSpeed").value) || 0;
+    const incline = parseFloat(document.getElementById("cardioIncline").value) || 0;
+    const notes = document.getElementById("cardioNotes").value.trim();
+
+    const logs = getLogs();
+    logs.unshift({
+      id: Date.now(),
+      date: new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      type: "cardio",
+      title: session.title,
+      summary: `${duration} min @ ${speed} mph | ${incline}% incline${notes ? ` — ${notes}` : ""}`
+    });
+    saveLogs(logs);
+    switchTab("history");
+  }
+
+  function renderHistoryView() {
+    const view = document.getElementById("historyView");
+    const logs = getLogs();
+
+    if (logs.length === 0) {
+      view.innerHTML = `
+        <div class="session-banner">
+          <h2>Workout Log</h2>
+          <p>No sessions logged yet. Complete a Monday/Thursday lift or Tuesday/Wednesday incline walk to see your history here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    view.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;font-size:1.05rem;">Completed Sessions (${logs.length})</h2>
+        <button class="timer-btn" onclick="exportLogsCSV()">Export CSV</button>
+      </div>
+      ${logs.map(item => `
+        <div class="history-item">
+          <div class="history-top">
+            <span>${item.date}</span>
+            <button onclick="deleteLog(${item.id})" style="background:none;border:none;color:var(--danger);font-size:0.78rem;cursor:pointer;padding:0;">Delete</button>
+          </div>
+          <div class="history-title">${item.title}</div>
+          <div class="history-lines">
+            ${item.type === "cardio"
+              ? item.summary
+              : item.exercises.map(e => `<div><strong>${e.name}:</strong> ${e.sets.map(s => `${s.weight} lbs × ${s.reps}`).join(" | ")}</div>`).join("")
+            }
+          </div>
+        </div>
+      `).join("")}
+    `;
+  }
+
+  function deleteLog(id) {
+    const logs = getLogs().filter(l => l.id !== id);
+    saveLogs(logs);
+    renderHistoryView();
+  }
+
+  function exportLogsCSV() {
+    const logs = getLogs();
+    const rows = [["Date", "Session", "Exercise", "Set", "Weight_lbs", "Reps_or_Details"]];
+    logs.forEach(l => {
+      if (l.type === "cardio") {
+        rows.push([l.date, l.title, "Incline Treadmill Walk", 1, "", l.summary]);
+      } else {
+        l.exercises.forEach(ex => {
+          ex.sets.forEach((s, i) => {
+            rows.push([l.date, l.title, ex.name, i + 1, s.weight, s.reps]);
+          });
+        });
+      }
+    });
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "workout_history.csv";
+    a.click();
+  }
+
+  function switchTab(tab) {
+    const isWorkout = tab === "workout";
+    document.getElementById("workoutView").classList.toggle("hidden", !isWorkout);
+    document.getElementById("historyView").classList.toggle("hidden", isWorkout);
+    document.getElementById("timerBar").classList.toggle("hidden", !isWorkout);
+    document.getElementById("navWorkout").classList.toggle("active", isWorkout);
+    document.getElementById("navHistory").classList.toggle("active", !isWorkout);
+    if (!isWorkout) renderHistoryView();
+  }
+
+  function startTimer(seconds) {
+    stopTimer();
+    timerRemaining = seconds;
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+      timerRemaining--;
+      updateTimerDisplay();
+      if (timerRemaining <= 0) {
+        stopTimer();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    timerRemaining = 0;
+    updateTimerDisplay();
+  }
+
+  function updateTimerDisplay() {
+    const mins = String(Math.floor(timerRemaining / 60)).padStart(2, "0");
+    const secs = String(timerRemaining % 60).padStart(2, "0");
+    document.getElementById("timerDisplay").textContent = `${mins}:${secs}`;
+  }
+
+  // Initialize
+  renderDayTabs();
+  renderWorkoutView();
+</script>
+</body>
+</html>
